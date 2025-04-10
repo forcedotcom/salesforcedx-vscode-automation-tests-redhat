@@ -1,1 +1,2 @@
-
+# Run lint but don't fail on warnings (exit code 1), only on errors (exit code 2+)
+npm run lint || [ $? -eq 1 ]

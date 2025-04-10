@@ -1,0 +1,77 @@
+name: tests
+on:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+jobs:
+  # Check package-lock.json for inconsistencies
+  package-lock-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Check package-lock.json
+        run: |
+          if grep -q "localhost" package-lock.json; then
+            echo "ERROR: package-lock.json contains localhost references"
+            exit 1
+          fi
+
+  ubuntu-basic-tests:
+    needs: package-lock-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Salesforce CLI
+        run: npm install -g @salesforce/cli
+      - name: Compile and test
+        env:
+          WORKSPACE_PATH: ./temp-workspace-${{ github.run_id }}
+          SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL_E2E }}
+          DEV_HUB_USER_NAME: ${{ secrets.DEV_HUB_USER_NAME_E2E }}
+        run: |
+          npm run compile
+          mkdir -p $WORKSPACE_PATH
+          npm test
+
+  windows-basic-tests:
+    needs: ubuntu-basic-tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Salesforce CLI
+        run: npm install -g @salesforce/cli
+      - name: Compile and test
+        env:
+          # Use forward slashes even on Windows to avoid path interpretation issues
+          WORKSPACE_PATH: ./temp-workspace-${{ github.run_id }}
+          SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL_E2E }}
+          DEV_HUB_USER_NAME: ${{ secrets.DEV_HUB_USER_NAME_E2E }}
+        run: |
+          npm run compile
+          $WORKSPACE_PATH = ./temp-workspace-${{ github.run_id }}" -replace "\\", "/"
+          New-Item -Path $WORKSPACE_PATH -Force -ItemType Directory
+          npm test

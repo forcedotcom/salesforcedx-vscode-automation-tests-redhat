@@ -6,13 +6,15 @@
  */
 
 import { step } from 'mocha-steps';
-import { TestSetup } from '../testSetup';
-import * as utilities from '../utilities/index';
+import { TestSetup } from '../../src/testSetup';
+import { ProjectShapeOption, TestReqConfig, log } from '../../src/core';
+import { verifyProjectLoaded } from '../../src/ui-interaction';
 
 describe('Use existing project', async () => {
-  const testReqConfig: utilities.TestReqConfig = {
+  const testReqConfig: TestReqConfig = {
     projectConfig: {
-      projectShape: utilities.ProjectShapeOption.NEW
+      projectShape: ProjectShapeOption.NAMED,
+      githubRepoUrl: 'https://github.com/trailheadapps/dreamhouse-lwc.git'
     },
     isOrgRequired: false,
     testSuiteSuffixName: 'UseExistingProject'
@@ -21,7 +23,7 @@ describe('Use existing project', async () => {
   let testSetup: TestSetup;
   step('verify existing project is open', async () => {
     testSetup = await TestSetup.setUp(testReqConfig);
-    utilities.log(`${testSetup.testSuiteSuffixName} - Verify existing project open`);
-    await utilities.verifyProjectLoaded('dreamhouse-lwc-testing');
+    log(`${testSetup.testSuiteSuffixName} - Verify existing project open`);
+    await verifyProjectLoaded('dreamhouse-lwc');
   });
 });
