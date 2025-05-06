@@ -1,0 +1,46 @@
+name: npm-publish
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: true
+        type: string
+      nodeVersion:
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.nodeVersion }}
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: List files
+        run: ls -la
+
+      - name: Display package.json
+        run: cat package.json
+
+      - name: Display current directory
+        run: pwd
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

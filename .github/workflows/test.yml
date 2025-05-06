@@ -1,0 +1,84 @@
+name: tests
+# Testing edit_file access
+on:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+jobs:
+  # Check package-lock.json for inconsistencies
+  package-lock-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Check package-lock.json
+        run: |
+          if grep -q "localhost" package-lock.json; then
+            echo "ERROR: package-lock.json contains localhost references"
+            exit 1
+          fi
+
+  ubuntu-basic-tests:
+    needs: package-lock-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Salesforce CLI
+        run: npm install -g @salesforce/cli
+      - name: Display chromedriver version
+        run: chromedriver --version
+      - name: Setup Fluxbox and Xvfb
+        run: |
+          sudo apt-get -y install fluxbox
+          Xvfb :99 &
+          fluxbox -display :99 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      - name: Compile and test
+        env:
+          CODE_VERSION: 'latest'
+          # Custom project variables
+          SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL_E2E }}
+          DEV_HUB_USER_NAME: ${{ secrets.DEV_HUB_USER_NAME_E2E }}
+        run: |
+          npm run compile
+          npm test
+
+  windows-basic-tests:
+    needs: ubuntu-basic-tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Salesforce CLI
+        run: npm install -g @salesforce/cli
+      - name: Compile and test
+        env:
+          CODE_VERSION: 'latest'
+          # Custom project variables
+          SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL_E2E }}
+          DEV_HUB_USER_NAME: ${{ secrets.DEV_HUB_USER_NAME_E2E }}
+        run: |
+          npm run compile
+          npm test

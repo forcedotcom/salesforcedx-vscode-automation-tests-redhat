@@ -1,17 +1,102 @@
 {
-  "name": "salesforcedx-vscode-automation-tests-redhat",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "@salesforce/salesforcedx-vscode-test-tools",
+  "version": "1.0.1-dev.16",
+  "description": "Test automation framework for Salesforce Extensions for VS Code",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "src",
+    "README.md",
+    "LICENSE",
+    "dist"
+  ],
   "scripts": {
-    "test": "npm run compile && node ./lib/test-setup-and-runner.js --spec lib/specs/anInitialSuite.e2e.js",
-    "automation-tests": "npm run compile && node ./lib/test-setup-and-runner.js",
-    "setup": "npm run compile && node ./lib/test-setup-and-runner.js --spec test/setup/anInitialSetUp.e2e.js",
-    "lint": "eslint ./test --ext .ts",
-    "compile": "tsc --project ./tsconfig.json",
+    "test": "wireit",
+    "test:unit": "wireit",
+    "test:integration": "wireit",
+    "automation-tests": "wireit",
+    "lint": "wireit",
+    "lint:fix": "eslint ./test ./src --ext .ts --fix",
+    "compile": "wireit",
     "prepare": "husky",
     "extester": "extest --help",
-    "reinstall": "git checkout -- package-lock.json && git clean -xfd && npm install"
+    "reinstall": "git checkout -- package-lock.json && git clean -xfd && npm install",
+    "clean": "wireit",
+    "commit": "git-cz",
+    "commitlint": "commitlint --edit",
+    "prepublishOnly": "npm run clean && npm run lint && npm run compile",
+    "docs": "typedoc --out docs src/index.ts --excludePrivate --excludeExternals",
+    "docs:watch": "typedoc --out docs src/index.ts --excludePrivate --excludeExternals --watch",
+    "build": "npm run compile"
+  },
+  "overrides": {
+    "typedoc": {
+      "typescript": "5.6.3"
+    }
+  },
+  "wireit": {
+    "compile": {
+      "command": "tsc --project ./tsconfig.json",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "lib/**/*"
+      ],
+      "clean": "if-file-deleted"
+    },
+    "lint": {
+      "command": "eslint ./test ./src --ext .ts",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        ".eslintrc.json"
+      ],
+      "output": []
+    },
+    "clean": {
+      "command": "rm -rf lib",
+      "output": []
+    },
+    "test": {
+      "dependencies": [
+        "test:unit",
+        "test:integration"
+      ]
+    },
+    "test:unit": {
+      "command": "mocha ./lib/test/unit/**/*.test.js",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "lib/test/unit/**/*.test.js"
+      ],
+      "output": []
+    },
+    "test:integration": {
+      "command": "node ./lib/src/test-setup-and-runner.js --spec lib/test/selfSpecs/useExistingProject.test.js",
+      "dependencies": [
+        "compile",
+        "test:unit"
+      ],
+      "files": [
+        "lib/test/selfSpecs/**/*.test.js"
+      ]
+    },
+    "automation-tests": {
+      "command": "node ./lib/test-setup-and-runner.js",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "lib/**/*"
+      ],
+      "output": []
+    }
   },
   "config": {
     "commitizen": {
@@ -20,39 +105,52 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/forcedotcom/salesforcedx-vscode-automation-tests-redhat.git"
+    "url": "git+https://github.com/forcedotcom/salesforcedx-vscode-test-tools.git"
   },
-  "author": "",
+  "keywords": [
+    "salesforce",
+    "vscode",
+    "test",
+    "tools"
+  ],
+  "author": "Salesforce",
   "license": "BSD-3-Clause",
   "bugs": {
-    "url": "https://github.com/forcedotcom/salesforcedx-vscode-automation-tests-redhat/issues"
+    "url": "https://github.com/forcedotcom/salesforcedx-vscode-test-tools/issues"
   },
-  "homepage": "https://github.com/forcedotcom/salesforcedx-vscode-automation-tests-redhat#readme",
-  "devDependencies": {
-    "@commitlint/config-conventional": "19.5.0",
+  "homepage": "https://github.com/forcedotcom/salesforcedx-vscode-test-tools#readme",
+  "dependencies": {
     "@salesforce/kit": "^3.2.3",
+    "chai": "^4.5.0",
+    "cross-spawn": "^7.0.3",
+    "fast-glob": "^3.3.2",
+    "mocha": "^10.8.2",
+    "mocha-steps": "^1.3.0",
+    "vscode-extension-tester": "^8.8.1",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.0",
+    "@commitlint/config-conventional": "19.5.0",
     "@types/chai": "^4.3.17",
     "@types/cross-spawn": "^6.0.6",
     "@types/mocha": "^10.0.9",
     "@types/mocha-steps": "^1.3.3",
     "@types/yargs": "^17.0.33",
-    "@typescript-eslint/eslint-plugin": "^8.12.2",
-    "chai": "^4.5.0",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
     "commitizen": "^4.3.1",
-    "cross-spawn": "^7.0.3",
-    "eslint": "^9.13.0",
+    "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-import": "2.31.0",
+    "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-prettier": "^5.2.1",
-    "fast-glob": "^3.3.2",
     "foo": "^0.0.7",
     "husky": "9.1.6",
-    "mocha": "^10.8.2",
-    "mocha-steps": "^1.3.0",
     "prettier": "3.3.3",
     "ts-node": "10.9.2",
+    "typedoc": "^0.25.12",
+    "typedoc-plugin-markdown": "^3.17.1",
     "typescript": "5.6.3",
-    "vscode-extension-tester": "^8.8.1",
-    "yargs": "^17.7.2"
+    "wireit": "^0.14.11"
   }
 }

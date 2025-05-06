@@ -1,0 +1,19 @@
+{
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "name": "Salesforce DX VSCode Test Tools",
+  "excludePrivate": true,
+  "excludeExternals": true,
+  "excludeInternal": true,
+  "theme": "default",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "README.md",
+  "tsconfig": "tsconfig.json",
+  "includeVersion": true,
+  "sort": ["alphabetical"],
+  "categorizeByGroup": true,
+  "categoryOrder": ["Core", "System Operations", "Salesforce Components", "Testing", "UI Interaction", "*"],
+  "navigationLinks": {
+    "GitHub": "https://github.com/forcedotcom/salesforcedx-vscode-test-tools"
+  }
+}

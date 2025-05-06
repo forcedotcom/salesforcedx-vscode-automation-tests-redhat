@@ -14,10 +14,14 @@
   "plugins": ["@typescript-eslint", "import"],
   "extends": ["plugin:@typescript-eslint/recommended", "prettier"],
   "rules": {
-    "import/extensions": [
-     ],
+    "import/extensions": "off",
     "@typescript-eslint/no-misused-promises": "off",
-    "@typescript-eslint/no-floating-promises": "warn"
+    "@typescript-eslint/no-floating-promises": "warn",
+    "@typescript-eslint/no-non-null-assertion": "warn",
+    "@typescript-eslint/no-empty-function": "warn",
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-unused-vars": "warn",
+    "prefer-const": "warn"
   },
   "settings": {
     "import/extensions": [".js", ".jsx", ".ts", ".tsx"],

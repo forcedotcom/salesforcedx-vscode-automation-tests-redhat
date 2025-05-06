@@ -7,16 +7,22 @@
 
 import fs from 'fs';
 import { step } from 'mocha-steps';
-import { EnvironmentSettings } from '../environmentSettings';
-import * as utilities from '../utilities/index';
+import { EnvironmentSettings } from '../../src/environmentSettings';
 import { expect } from 'chai';
+import {
+  orgLoginSfdxUrl,
+  scratchOrgCreate,
+  orgList,
+  orgDisplay,
+  deleteScratchOrg,
+  setAlias
+} from '../../src/system-operations';
 
 describe('CLI Commands', async () => {
   const environmentSettings = EnvironmentSettings.getInstance();
   const devHubUserName = environmentSettings.devHubUserName;
   const devHubAliasName = environmentSettings.devHubAliasName;
   const SFDX_AUTH_URL = environmentSettings.sfdxAuthUrl;
-  const orgId = environmentSettings.orgId;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let scratchOrg: any;
 
@@ -24,25 +30,29 @@ describe('CLI Commands', async () => {
     const sfdxAuthUrl = String(SFDX_AUTH_URL);
     const authFilePath = 'authFile.txt';
 
+    if (!devHubUserName) {
+      throw new Error('No DEV_HUB_USER_NAME provided');
+    }
+
     // create and write in a text file
     fs.writeFileSync(authFilePath, sfdxAuthUrl);
 
-    const authorizeOrg = await utilities.orgLoginSfdxUrl(authFilePath);
-    expect(authorizeOrg.stdout).to.include(`Successfully authorized ${devHubUserName} with org ID ${orgId}`);
+    const authorizeOrg = await orgLoginSfdxUrl(authFilePath);
+    expect(authorizeOrg.stdout).to.include(`Successfully authorized ${devHubUserName}`);
 
-    const setAlias = await utilities.setAlias(devHubAliasName, devHubUserName);
-    expect(setAlias.stdout).to.include(devHubAliasName);
-    expect(setAlias.stdout).to.include(devHubUserName);
-    expect(setAlias.stdout).to.include('true');
+    const setAliasResult = await setAlias(devHubAliasName, devHubUserName);
+    expect(setAliasResult.stdout).to.include(devHubAliasName);
+    expect(setAliasResult.stdout).to.include(devHubUserName);
+    expect(setAliasResult.stdout).to.include('true');
   });
 
   step('Create a scratch org', async () => {
-    const scratchOrgResult = await utilities.scratchOrgCreate('developer', 'NONE', 'foo', 1);
+    const scratchOrgResult = await scratchOrgCreate('developer', 'NONE', 'foo', 1);
     expect(scratchOrgResult.exitCode).to.equal(0);
   });
 
   step('Find scratch org using org list', async () => {
-    const orgListResult = await utilities.orgList();
+    const orgListResult = await orgList();
     expect(orgListResult.exitCode).to.equal(0);
     const orgs = JSON.parse(orgListResult.stdout);
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
@@ -54,7 +64,7 @@ describe('CLI Commands', async () => {
   });
 
   step('Display org using org display', async () => {
-    const orgDisplayResult = await utilities.orgDisplay('foo');
+    const orgDisplayResult = await orgDisplay('foo');
     const org = JSON.parse(orgDisplayResult.stdout);
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     expect(org).to.not.be.undefined;
@@ -62,7 +72,7 @@ describe('CLI Commands', async () => {
 
   after('Delete the scratch org', async () => {
     if (scratchOrg) {
-      await utilities.deleteScratchOrg('foo');
+      await deleteScratchOrg('foo');
     }
   });
 });
