@@ -2,6 +2,7 @@ import { EditorView, TextEditor, Workbench } from 'vscode-extension-tester';
 import { executeQuickPick } from './commandPrompt';
 import { Duration, log, openFile, pause } from './miscellaneous';
 import { getBrowser } from './workbench';
+import { retryOperation } from './retryUtils';
 
 /**
  * @param workbench page object representing the custom VSCode title bar
@@ -10,13 +11,20 @@ import { getBrowser } from './workbench';
  */
 export async function getTextEditor(workbench: Workbench, fileName: string): Promise<TextEditor> {
   log(`calling getTextEditor(${fileName})`);
-  const inputBox = await executeQuickPick('Go to File...', Duration.seconds(1));
-  await inputBox.setText(fileName);
-  await inputBox.confirm();
-  await pause(Duration.seconds(1));
-  const editorView = workbench.getEditorView();
-  const textEditor = (await editorView.openEditor(fileName)) as TextEditor;
-  return textEditor;
+  await retryOperation(async () => {
+    log('getTextEditor() - Attempting to open file');
+    const inputBox = await executeQuickPick('Go to File...', Duration.seconds(1));
+    await inputBox.setText(fileName);
+    await inputBox.confirm();
+    await pause(Duration.seconds(1));
+  });
+  log('getTextEditor() - File opened, getting editor view');
+
+  return await retryOperation(async () => {
+    const editorView = workbench.getEditorView();
+    const textEditor = (await editorView.openEditor(fileName)) as TextEditor;
+    return textEditor;
+  });
 }
 
 export async function checkFileOpen(

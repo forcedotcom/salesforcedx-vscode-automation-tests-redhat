@@ -9,6 +9,7 @@ import path from 'path';
 import * as utilities from './utilities/index';
 import { EnvironmentSettings as Env } from './environmentSettings';
 import { ProjectConfig, ProjectShapeOption } from './utilities/index';
+import { retryOperation } from './utilities/retryUtils';
 
 export class TestSetup {
   public testSuiteSuffixName: string = '';
@@ -34,10 +35,8 @@ export class TestSetup {
     await utilities.executeQuickPick('View: Close All Editors');
     if (testReqConfig.projectConfig.projectShape !== ProjectShapeOption.NONE) {
       await utilities.verifyExtensionsAreRunning(utilities.getExtensionsToVerifyActive());
-      const scratchOrgEdition = testReqConfig.scratchOrgEdition || 'developer';
-      testSetup.updateScratchOrgDefWithEdition(scratchOrgEdition);
       if (process.platform === 'darwin') testSetup.setJavaHomeConfigEntry(); // Extra config needed for Apex LSP on GHA
-      if (testReqConfig.isOrgRequired) await utilities.setUpScratchOrg(testSetup, scratchOrgEdition);
+      if (testReqConfig.isOrgRequired) await utilities.setUpScratchOrg(testSetup);
       await utilities.reloadAndEnableExtensions(); // This is necessary in order to update JAVA home path
     }
     testSetup.setWorkbenchHoverDelay();
@@ -65,7 +64,7 @@ export class TestSetup {
 
   public async setUpTestingWorkspace(projectConfig: ProjectConfig) {
     utilities.log(`${this.testSuiteSuffixName} - Starting setUpTestingWorkspace()...`);
-    let projectName;
+    let projectName: string | null;
     switch (projectConfig.projectShape) {
       case ProjectShapeOption.NEW:
         await this.initializeNewSfProject();
@@ -133,7 +132,9 @@ export class TestSetup {
       utilities.log(`Project folder to open: ${this.projectFolderPath}`);
       await utilities.openFolder(this.projectFolderPath!);
       // Verify the project was loaded.
-      await utilities.verifyProjectLoaded(projectName ?? this.tempProjectName);
+      await retryOperation(async () => {
+        await utilities.verifyProjectLoaded(projectName ?? this.tempProjectName);
+      });
     }
   }
 

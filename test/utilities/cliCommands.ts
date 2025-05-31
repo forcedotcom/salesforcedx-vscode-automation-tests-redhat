@@ -138,7 +138,14 @@ export async function scratchOrgCreate(
     ...(definitionFileOrNone !== 'NONE' ? ['--definition-file', definitionFileOrNone] : [])
   ];
 
-  const sfOrgCreateResult = await runCliCommand('org:create:scratch', ...args);
+  let sfOrgCreateResult: SfCommandRunResults;
+  try {
+    sfOrgCreateResult = await runCliCommand('org:create:scratch', ...args);
+  } catch (e) {
+    log('retrying "sf org:create:scratch"');
+    log(JSON.stringify(e));
+    sfOrgCreateResult = await runCliCommand('org:create:scratch', ...args);
+  }
 
   if (sfOrgCreateResult.exitCode > 0) {
     log(

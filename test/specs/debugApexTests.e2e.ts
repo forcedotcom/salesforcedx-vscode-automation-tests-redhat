@@ -9,6 +9,7 @@ import { TestSetup } from '../testSetup';
 import * as utilities from '../utilities/index';
 import { TreeItem, after } from 'vscode-extension-tester';
 import { expect } from 'chai';
+import { retryOperation } from '../utilities/retryUtils';
 
 describe('Debug Apex Tests', async () => {
   let testSetup: TestSetup;
@@ -25,18 +26,14 @@ describe('Debug Apex Tests', async () => {
     testSetup = await TestSetup.setUp(testReqConfig);
 
     // Create Apex class 1 and test
-    try {
+    await retryOperation(async () => {
       await utilities.createApexClassWithTest('ExampleApexClass1');
-    } catch (error) {
-      await utilities.createApexClassWithTest('ExampleApexClass1');
-    }
+    }, 3, 'Failed to create Apex class 1');
 
     // Create Apex class 2 and test
-    try {
+    await retryOperation(async () => {
       await utilities.createApexClassWithTest('ExampleApexClass2');
-    } catch (error) {
-      await utilities.createApexClassWithTest('ExampleApexClass2');
-    }
+    }, 3, 'Failed to create Apex class 2');
 
     // Push source to org
     await utilities.executeQuickPick(
