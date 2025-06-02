@@ -9,13 +9,11 @@ import path from 'path';
 import fs from 'fs';
 import { EnvironmentSettings as Env } from '../environmentSettings';
 import { TestSetup } from '../testSetup';
+import { expect } from 'chai';
 
-export async function setUpScratchOrg(
-  testSetup: TestSetup,
-  scratchOrgEdition: utilities.OrgEdition
-) {
+export async function setUpScratchOrg(testSetup: TestSetup) {
   await authorizeDevHub(testSetup);
-  await createDefaultScratchOrg(testSetup, scratchOrgEdition);
+  await createDefaultScratchOrg();
 }
 
 export async function authorizeDevHub(testSetup: TestSetup): Promise<void> {
@@ -77,87 +75,81 @@ async function verifyAliasAndUserName() {
   );
 }
 
-async function createDefaultScratchOrg(
-  testSetup: TestSetup,
-  edition: utilities.OrgEdition = 'developer'
-): Promise<void> {
-  utilities.log('');
-  utilities.log(`${testSetup.testSuiteSuffixName} - Starting createDefaultScratchOrg()...`);
-
-  const definitionFile = path.join(
-    testSetup.projectFolderPath!,
-    'config',
-    'project-scratch-def.json'
+export async function createDefaultScratchOrg(): Promise<string> {
+  const prompt = await utilities.executeQuickPick(
+    'SFDX: Create a Default Scratch Org...',
+    utilities.Duration.seconds(1)
   );
 
-  utilities.debug(`${testSetup.testSuiteSuffixName} - constructing scratchOrgAliasName...`);
-  // Org alias format: TempScratchOrg_yyyy_mm_dd_username_ticks_testSuiteSuffixName
+  // Select a project scratch definition file (config/project-scratch-def.json)
+  await prompt.confirm();
+
+  // Enter an org alias - yyyy-mm-dd-username-ticks
   const currentDate = new Date();
-  const day = currentDate.getDate().toString().padStart(2, '0');
-  const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+  const ticks = currentDate.getTime();
+  const day = ('0' + currentDate.getDate()).slice(-2);
+  const month = ('0' + (currentDate.getMonth() + 1)).slice(-2);
   const year = currentDate.getFullYear();
-
   const currentOsUserName = utilities.transformedUserName();
+  const scratchOrgAliasName = `TempScratchOrg_${year}_${month}_${day}_${currentOsUserName}_${ticks}_OrgAuth`;
 
-  testSetup.scratchOrgAliasName = `TempScratchOrg_${year}_${month}_${day}_${currentOsUserName}_${currentDate.getTime()}_${testSetup.testSuiteSuffixName}`;
-  utilities.log(
-    `${testSetup.testSuiteSuffixName} - temporary scratch org name is ${testSetup.scratchOrgAliasName}...`
-  );
+  await prompt.setText(scratchOrgAliasName);
+  await utilities.pause(utilities.Duration.seconds(1));
 
-  const startHr = process.hrtime();
+  // Press Enter/Return.
+  await prompt.confirm();
 
-  const sfOrgCreateResult = await utilities.scratchOrgCreate(
-    edition,
-    definitionFile,
-    testSetup.scratchOrgAliasName,
-    1
-  );
-  utilities.debug(`${testSetup.testSuiteSuffixName} - calling JSON.parse()...`);
-  const result = JSON.parse(sfOrgCreateResult.stdout).result;
+  // Enter the number of days.
+  await prompt.setText('1');
+  await utilities.pause(utilities.Duration.seconds(1));
 
-  const endHr = process.hrtime(startHr);
-  const time = endHr[0] * 1_000_000_000 + endHr[1] - (startHr[0] * 1_000_000_000 + startHr[1]);
+  // Press Enter/Return.
+  await prompt.confirm();
 
-  utilities.log(
-    `Creating ${testSetup.scratchOrgAliasName} took ${time} ticks (${time / 1_000.0} seconds)`
-  );
-  if (!result?.authFields?.accessToken || !result.orgId || !result.scratchOrgInfo.SignupEmail) {
-    throw new Error(
-      `In createDefaultScratchOrg(), result is missing required fields.\nAuth Fields: ${result.authFields}\nOrg ID: ${result.orgId}\nSign Up Email: ${result.scratchOrgInfo.SignupEmail}.`
-    );
-  }
-  testSetup.scratchOrgId = result.orgId as string;
-
-  // Run SFDX: Set a Default Org
-  utilities.log(`${testSetup.testSuiteSuffixName} - selecting SFDX: Set a Default Org...`);
-
-  await utilities.setDefaultOrg(testSetup.scratchOrgAliasName);
-
-  await utilities.pause(utilities.Duration.seconds(3));
-
-  // Look for the success notification.
   const successNotificationWasFound = await utilities.notificationIsPresentWithTimeout(
-    /SFDX: Set a Default Org successfully ran/,
+    /SFDX: Create a Default Scratch Org\.\.\. successfully ran/,
     utilities.Duration.TEN_MINUTES
   );
-  if (!successNotificationWasFound) {
-    throw new Error(
-      'In createDefaultScratchOrg(), the notification of "SFDX: Set a Default Org successfully ran" was not found'
+  if (successNotificationWasFound !== true) {
+    const failureNotificationWasFound = await utilities.notificationIsPresentWithTimeout(
+      /SFDX: Create a Default Scratch Org\.\.\. failed to run/,
+      utilities.Duration.TEN_MINUTES
     );
+    if (failureNotificationWasFound === true) {
+      if (
+        await utilities.attemptToFindOutputPanelText(
+          'Salesforce CLI',
+          'organization has reached its daily scratch org signup limit',
+          5
+        )
+      ) {
+        // This is a known issue...
+        utilities.log('Warning - creating the scratch org failed, but the failure was due to the daily signup limit');
+      } else if (await utilities.attemptToFindOutputPanelText('Salesforce CLI', 'is enabled as a Dev Hub', 5)) {
+        // This is a known issue...
+        utilities.log('Warning - Make sure that the org is enabled as a Dev Hub.');
+        utilities.log(
+          'Warning - To enable it, open the org in your browser, navigate to the Dev Hub page in Setup, and click Enable.'
+        );
+        utilities.log(
+          'Warning - If you still see this error after enabling the Dev Hub feature, then re-authenticate to the org.'
+        );
+      } else {
+        // The failure notification is showing, but it's not due to maxing out the daily limit.  What to do...?
+        utilities.log('Warning - creating the scratch org failed... not sure why...');
+      }
+    } else {
+      utilities.log(
+        'Warning - creating the scratch org failed... neither the success notification or the failure notification was found.'
+      );
+    }
   }
+  expect(successNotificationWasFound).to.equal(true);
 
-  // Look for this.scratchOrgAliasName in the list of status bar items.
-  const scratchOrgStatusBarItem = await utilities.getStatusBarItemWhichIncludes(
-    testSetup.scratchOrgAliasName
-  );
-  if (!scratchOrgStatusBarItem) {
-    throw new Error(
-      'In createDefaultScratchOrg(), getStatusBarItemWhichIncludes() returned a scratchOrgStatusBarItem with a value of null (or undefined)'
-    );
-  }
-
-  utilities.log(`${testSetup.testSuiteSuffixName} - ...finished createDefaultScratchOrg()`);
-  utilities.log('');
+  // Look for the org's alias name in the list of status bar items.
+  const scratchOrgStatusBarItem = await utilities.getStatusBarItemWhichIncludes(scratchOrgAliasName);
+  expect(scratchOrgStatusBarItem).to.not.be.undefined;
+  return scratchOrgAliasName;
 }
 
 export async function deleteScratchOrgInfo(testSetup: TestSetup): Promise<void> {

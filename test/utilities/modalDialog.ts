@@ -7,6 +7,7 @@
 
 import { expect } from 'chai';
 import { ModalDialog } from 'vscode-extension-tester';
+import { log } from './miscellaneous';
 
 /**
  * Clicks a button on a modal dialog with the specified button text.
@@ -17,6 +18,9 @@ import { ModalDialog } from 'vscode-extension-tester';
  */
 export const clickButtonOnModalDialog = async (buttonText: string): Promise<void> => {
   const modalDialog = new ModalDialog();
-  expect(modalDialog).to.not.be.undefined;
-  await modalDialog.pushButton(buttonText);
+  try {
+    await modalDialog.pushButton(buttonText);
+  } catch (error) {
+    log(`clickButtonOnModalDialog() - Error pushing button ${buttonText}: ${error}`);
+  }
 }

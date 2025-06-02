@@ -3,6 +3,7 @@ import { exec, SpawnOptionsWithoutStdio } from 'child_process';
 import { debug, log } from './miscellaneous';
 import { OrgEdition, SfCommandRunResults } from './types';
 import { EnvironmentSettings } from '../environmentSettings';
+import { retryOperation } from './retryUtils';
 
 export type NONE = 'NONE';
 
@@ -138,7 +139,9 @@ export async function scratchOrgCreate(
     ...(definitionFileOrNone !== 'NONE' ? ['--definition-file', definitionFileOrNone] : [])
   ];
 
-  const sfOrgCreateResult = await runCliCommand('org:create:scratch', ...args);
+  const sfOrgCreateResult: SfCommandRunResults = await retryOperation(async () => {
+    return await runCliCommand('org:create:scratch', ...args);
+  });
 
   if (sfOrgCreateResult.exitCode > 0) {
     log(
