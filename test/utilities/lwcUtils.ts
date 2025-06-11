@@ -7,6 +7,8 @@
 
 import { executeQuickPick } from './commandPrompt';
 import { Duration, log, pause } from './miscellaneous';
+import { clickButtonOnModalDialog } from './modalDialog';
+import { retryOperation } from './retryUtils';
 import { getTextEditor } from './textEditorView';
 import { getWorkbench } from './workbench';
 
@@ -20,12 +22,16 @@ export async function createLwc(name: string): Promise<void> {
 
   log('createLwc() - Set the name of the new component');
   // Set the name of the new component
-  await inputBox.setText(name);
-  await pause(Duration.seconds(1));
-  await inputBox.confirm();
-  await pause(Duration.seconds(1));
-  await inputBox.confirm();
-  await pause(Duration.seconds(1));
+  await retryOperation(async () => {
+    await inputBox.setText(name);
+    await pause(Duration.seconds(1));
+    await inputBox.confirm();
+    await pause(Duration.seconds(1));
+    await inputBox.confirm();
+    await pause(Duration.seconds(1));
+    await clickButtonOnModalDialog('Overwrite');
+    await pause(Duration.seconds(1));
+  });
 
   log('createLwc() - Modify js content');
   // Modify js content
@@ -109,12 +115,16 @@ export async function createAura(name: string): Promise<void> {
 
   log('createAura() - Set the name of the new component');
   // Set the name of the new component
-  await inputBox.setText(name);
-  await pause(Duration.seconds(1));
-  await inputBox.confirm();
-  await pause(Duration.seconds(1));
-  await inputBox.confirm();
-  await pause(Duration.seconds(1));
+  await retryOperation(async () => {
+    await inputBox.setText(name);
+    await pause(Duration.seconds(1));
+    await inputBox.confirm();
+    await pause(Duration.seconds(1));
+    await inputBox.confirm();
+    await pause(Duration.seconds(1));
+    await clickButtonOnModalDialog('Overwrite');
+    await pause(Duration.seconds(1));
+  });
 
   log('createAura() - Modify html content');
   // Modify html content

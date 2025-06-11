@@ -9,25 +9,40 @@ import { executeQuickPick } from './commandPrompt';
 import { Duration, log, pause } from './miscellaneous';
 import { getWorkbench } from './workbench';
 import { getTextEditor } from './textEditorView';
+import { retryOperation } from './retryUtils';
+import { clickButtonOnModalDialog } from './modalDialog';
+import { InputBox, QuickOpenBox } from 'vscode-extension-tester';
 
 export async function createApexClass(name: string, classText: string, breakpoint?: number): Promise<void> {
   log(`calling createApexClass(${name})`);
-  // Using the Command palette, run SFDX: Create Apex Class to create the main class
-  const inputBox = await executeQuickPick('SFDX: Create Apex Class', Duration.seconds(2));
+  let inputBox: InputBox | QuickOpenBox;
+  await retryOperation(async () => {
+    // Using the Command palette, run SFDX: Create Apex Class to create the main class
+    inputBox = await executeQuickPick('SFDX: Create Apex Class', Duration.seconds(2));
+  });
 
   // Set the name of the new Apex Class
-  await inputBox.setText(name);
-  await pause(Duration.seconds(1));
-  await inputBox.confirm();
-  await pause(Duration.seconds(1));
-  await inputBox.confirm();
-  await pause(Duration.seconds(1));
+  await retryOperation(async () => {
+    await inputBox.setText(name);
+    await pause(Duration.seconds(1));
+    await inputBox.confirm();
+    await pause(Duration.seconds(1));
+    await inputBox.confirm();
+    await pause(Duration.seconds(1));
+    await clickButtonOnModalDialog('Overwrite');
+    await pause(Duration.seconds(1));
+  });
 
+  log(`Blank Apex Class ${name} created successfully.`);
   // Modify class content
   const workbench = getWorkbench();
+  log('Getting text editor for the new Apex Class');
   const textEditor = await getTextEditor(workbench, name + '.cls');
+  log('Done getting text editor for the new Apex Class');
   await pause(Duration.seconds(1));
+  log(`Setting text for Apex Class ${name}`);
   await textEditor.setText(classText);
+  log(`Done setting text for Apex Class ${name}`);
   await pause(Duration.seconds(1));
   await textEditor.save();
   await pause(Duration.seconds(1));
@@ -35,6 +50,7 @@ export async function createApexClass(name: string, classText: string, breakpoin
     await textEditor.toggleBreakpoint(breakpoint);
   }
   await pause(Duration.seconds(1));
+  log(`Apex Class ${name} modified successfully.`);
 }
 
 export async function createApexClassWithTest(name: string): Promise<void> {

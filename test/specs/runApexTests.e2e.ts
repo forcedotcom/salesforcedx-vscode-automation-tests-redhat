@@ -11,6 +11,7 @@ import { By, InputBox, QuickOpenBox, SideBarView, after } from 'vscode-extension
 import { EnvironmentSettings } from '../environmentSettings';
 import { TestSetup } from '../testSetup';
 import * as utilities from '../utilities/index';
+import { retryOperation } from '../utilities/retryUtils';
 
 describe('Run Apex Tests', () => {
   let prompt: InputBox | QuickOpenBox;
@@ -28,25 +29,19 @@ describe('Run Apex Tests', () => {
     testSetup = await TestSetup.setUp(testReqConfig);
 
     // Create Apex class 1 and test
-    try {
+    await retryOperation(async () => {
       await utilities.createApexClassWithTest('ExampleApexClass1');
-    } catch (error) {
-      await utilities.createApexClassWithTest('ExampleApexClass1');
-    }
+    }, 3, 'Failed to create Apex class 1');
 
     // Create Apex class 2 and test
-    try {
+    await retryOperation(async () => {
       await utilities.createApexClassWithTest('ExampleApexClass2');
-    } catch (error) {
-      await utilities.createApexClassWithTest('ExampleApexClass2');
-    }
+    }, 3, 'Failed to create Apex class 2');
 
     // Create Apex class 3 and test
-    try {
+    await retryOperation(async () => {
       await utilities.createApexClassWithTest('ExampleApexClass3');
-    } catch (error) {
-      await utilities.createApexClassWithTest('ExampleApexClass3');
-    }
+    }, 3, 'Failed to create Apex class 3');
 
     // Push source to org
     await utilities.executeQuickPick(
