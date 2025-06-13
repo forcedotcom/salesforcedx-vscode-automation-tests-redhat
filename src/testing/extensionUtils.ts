@@ -34,7 +34,7 @@ export const extensions: ExtensionType[] = [
     name: 'SOQL',
     vsixPath: '',
     shouldInstall: 'optional',
-    shouldVerifyActivation: true
+    shouldVerifyActivation: false
   },
   {
     extensionId: 'salesforcedx-einstein-gpt',
