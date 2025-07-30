@@ -85,7 +85,9 @@
       ],
       "files": [
         "lib/test/selfSpecs/**/*.test.js"
-      ]
+      ],
+      "output": [],
+      "verbose": true
     },
     "automation-tests": {
       "command": "node ./lib/test-setup-and-runner.js",
