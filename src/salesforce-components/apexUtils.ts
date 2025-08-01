@@ -5,13 +5,11 @@
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { executeQuickPick } from '../ui-interaction/commandPrompt';
-import { Duration, log, pause } from '../core/miscellaneous';
+import { join } from 'path';
+import { Duration, log, openFile, pause } from '../core/miscellaneous';
 import { getWorkbench } from '../ui-interaction/workbench';
-import { getTextEditor, overrideTextInFile } from '../ui-interaction/textEditorView';
-import { InputBox, QuickOpenBox } from 'vscode-extension-tester';
-import { retryOperation } from '../retryUtils';
-import { clickButtonOnModalDialog } from '../ui-interaction';
+import { getTextEditor } from '../ui-interaction/textEditorView';
+import { createFolder, createOrOverwriteFile } from '../system-operations/fileSystem';
 
 /**
  * Creates an Apex class with the specified name and content
@@ -19,43 +17,62 @@ import { clickButtonOnModalDialog } from '../ui-interaction';
  * @param classText - The content of the Apex class
  * @param breakpoint - Optional line number where a breakpoint should be set
  */
-export async function createApexClass(name: string, classText: string, breakpoint?: number): Promise<void> {
+export async function createApexClass(name: string, folder: string, classText?: string, breakpoint?: number): Promise<void> {
   log(`calling createApexClass(${name})`);
-  let inputBox: InputBox | QuickOpenBox;
-  await retryOperation(async () => {
-    // Using the Command palette, run SFDX: Create Apex Class to create the main class
-    inputBox = await executeQuickPick('SFDX: Create Apex Class', Duration.seconds(2));
-  });
 
-  // Set the name of the new Apex Class
-  await retryOperation(async () => {
-    await inputBox.setText(name);
-    await pause(Duration.seconds(1));
-    await inputBox.confirm();
-    await pause(Duration.seconds(1));
-    await inputBox.confirm();
-    await pause(Duration.seconds(1));
-    await clickButtonOnModalDialog('Overwrite', false);
-    await pause(Duration.seconds(1));
-  });
+  // Use provided classText or default template
+  const content = classText || [
+    `public with sharing class ${name} {`,
+    `\tpublic ${name}() {`,
+    ``,
+    `\t}`,
+    `}`
+  ].join('\n');
 
-  log(`Blank Apex Class ${name} created successfully.`);
-  // Modify class content
-  const workbench = getWorkbench();
-  log('Getting text editor for the new Apex Class');
-  const textEditor = await getTextEditor(workbench, name + '.cls');
-  log('Done getting text editor for the new Apex Class');
+  // Define metadata content
+  const metaContent = [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">`,
+    `    <apiVersion>64.0</apiVersion>`,
+    `    <status>Active</status>`,
+    `</ApexClass>`
+  ].join('\n');
+
+  // Create the file paths (assuming we're in a Salesforce project structure)
+  const filePath = join(folder, `${name}.cls`);
+  const metaFilePath = join(folder, `${name}.cls-meta.xml`);
+
+  try {
+    // Ensure the folder exists before writing files
+    createFolder(folder);
+
+    // Write the Apex class file using fs.writeFile
+    createOrOverwriteFile(filePath, content);
+    log(`Apex Class ${name} created successfully at ${filePath}`);
+
+    // Write the metadata file using fs.writeFile
+    createOrOverwriteFile(metaFilePath, metaContent);
+    log(`Apex Class metadata ${name}.cls-meta.xml created successfully at ${metaFilePath}`);
+  } catch (error) {
+    log(`Error creating Apex Class ${name}: ${error}`);
+    throw error;
+  }
+
+  // Open the file in the text editor
   await pause(Duration.seconds(1));
-  log(`Setting text for Apex Class ${name}`);
-  await overrideTextInFile(textEditor, classText);
-  log(`Done setting text for Apex Class ${name}`);
-  await pause(Duration.seconds(1));
+  await openFile(filePath);
+
+  // Handle breakpoint if specified
   if (breakpoint) {
+    const workbench = getWorkbench();
+    const textEditor = await getTextEditor(workbench, name + '.cls');
     log('createApexClass() - Setting breakpoints');
     await pause(Duration.seconds(5)); // wait for file to be saved and loaded
+
     log(`createApexClass() - Set breakpoint ${breakpoint}`);
     await textEditor.toggleBreakpoint(breakpoint);
   }
+
   await pause(Duration.seconds(1));
   log(`Apex Class ${name} modified successfully.`);
 }
@@ -64,7 +81,7 @@ export async function createApexClass(name: string, classText: string, breakpoin
  * Creates an Apex class and its corresponding test class
  * @param name - The name of the Apex class (test class will be named [name]Test)
  */
-export async function createApexClassWithTest(name: string): Promise<void> {
+export async function createApexClassWithTest(name: string, folder: string): Promise<void> {
   log(`calling createApexClassWithTest()`);
   const classText = [
     `public with sharing class ${name} {`,
@@ -73,7 +90,7 @@ export async function createApexClassWithTest(name: string): Promise<void> {
     `\t}`,
     `}`
   ].join('\n');
-  await createApexClass(name, classText, 3);
+  await createApexClass(name, folder, classText, 3);
 
   const testText = [
     `@IsTest`,
@@ -87,14 +104,14 @@ export async function createApexClassWithTest(name: string): Promise<void> {
     `\t}`,
     `}`
   ].join('\n');
-  await createApexClass(name + 'Test', testText, 6);
+  await createApexClass(name + 'Test', folder, testText, 6);
 }
 
 /**
  * Creates an Account service Apex class with a bug and its corresponding test class
  * The bug is that the TickerSymbol is set to accountNumber instead of tickerSymbol
  */
-export async function createApexClassWithBugs(): Promise<void> {
+export async function createApexClassWithBugs(folder: string): Promise<void> {
   log(`calling createApexClassWithBugs()`);
   const classText = [
     `public with sharing class AccountService {`,
@@ -108,7 +125,7 @@ export async function createApexClassWithBugs(): Promise<void> {
     `\t}`,
     `}`
   ].join('\n');
-  await createApexClass('AccountService', classText);
+  await createApexClass('AccountService', folder, classText);
 
   const testText = [
     `@IsTest`,
@@ -131,35 +148,41 @@ export async function createApexClassWithBugs(): Promise<void> {
     `\t}`,
     `}`
   ].join('\n');
-  await createApexClass('AccountServiceTest', testText);
+  await createApexClass('AccountServiceTest', folder, testText);
 }
 
 /**
  * Creates an anonymous Apex file with a simple debug statement
  */
-export async function createAnonymousApexFile(): Promise<void> {
+export async function createAnonymousApexFile(folder: string): Promise<void> {
   log(`calling createAnonymousApexFile()`);
-  const workbench = getWorkbench();
 
-  // Using the Command palette, run File: New File...
-  const inputBox = await executeQuickPick('Create: New File...', Duration.seconds(1));
-
-  // Set the name of the new Anonymous Apex file
-  await inputBox.setText('Anonymous.apex');
-  await inputBox.confirm();
-  await inputBox.confirm();
-
-  const textEditor = await getTextEditor(workbench, 'Anonymous.apex');
+  // Define the file content
   const fileContent = ["System.debug('¡Hola mundo!');", ''].join('\n');
-  await textEditor.setText(fileContent);
-  await textEditor.save();
+
+  // Create the file path in the project root
+  const filePath = join(folder, 'Anonymous.apex');
+
+  try {
+    // Write the Anonymous Apex file using fs.writeFile
+    createOrOverwriteFile(filePath, fileContent);
+    log(`Anonymous Apex file created successfully at ${filePath}`);
+  } catch (error) {
+    log(`Error creating Anonymous Apex file: ${error}`);
+    throw error;
+  }
+
+  // Open the file in the text editor
+  await pause(Duration.seconds(1));
+  await openFile(filePath);
+
   await pause(Duration.seconds(1));
 }
 
 /**
  * Creates an Apex controller class for Visualforce pages
  */
-export async function createApexController(): Promise<void> {
+export async function createApexController(folder: string): Promise<void> {
   log(`calling createApexController()`);
   const classText = [
     `public class MyController {`,
@@ -177,5 +200,5 @@ export async function createApexController(): Promise<void> {
     `\t}`,
     `}`
   ].join('\n');
-  await createApexClass('MyController', classText);
+  await createApexClass('MyController', folder, classText);
 }

@@ -19,6 +19,15 @@ export function createFolder(folderPath: string): void {
 }
 
 /**
+ * Creates a file at the specified path, overwriting the file if it already exists
+ * @param filePath - The file system path where the file should be created
+ * @param content - The content to be written to the file
+ */
+export function createOrOverwriteFile(filePath: string, content: string): void {
+  fs.writeFileSync(filePath, content);
+}
+
+/**
  * Removes a directory and all its contents at the specified path
  * @param folderPath - The file system path of the folder to be removed
  */

@@ -24,10 +24,5 @@
   "prettier.arrowParens": "avoid",
   "editor.rulers": [
     120
-  ],
-  "cSpell.words": [
-    "salesforcedx",
-    "SOQL",
-    "visualforce"
   ]
 }

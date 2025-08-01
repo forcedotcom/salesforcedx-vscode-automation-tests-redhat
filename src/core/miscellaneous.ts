@@ -288,7 +288,7 @@ export async function openFolder(path: string) {
 }
 
 /**
- * An definite alternative of getTextEditor to open a file in text editor
+ * A definite alternative of getTextEditor to open a file in text editor
  * @param path
  */
 export async function openFile(path: string) {

@@ -1,6 +1,6 @@
 {
   "name": "@salesforce/salesforcedx-vscode-test-tools",
-  "version": "1.1.6",
+  "version": "1.1.7-dev.2",
   "description": "Test automation framework for Salesforce Extensions for VS Code",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

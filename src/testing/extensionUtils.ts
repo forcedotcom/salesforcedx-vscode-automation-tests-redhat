@@ -96,7 +96,7 @@ export const extensions: ExtensionType[] = [
 
 /**
  * Shows the list of running extensions in VS Code
- * @returns {Promise<Editor | undefined>} The editor showing running extensions, or undefined if not found
+ * @returns The editor showing running extensions, or undefined if not found
  */
 export async function showRunningExtensions(): Promise<Editor | undefined> {
   log('');
@@ -121,7 +121,6 @@ export async function showRunningExtensions(): Promise<Editor | undefined> {
 
 /**
  * Reloads the VS Code window and enables all extensions
- * @returns {Promise<void>}
  */
 export async function reloadAndEnableExtensions(): Promise<void> {
   await reloadWindow();
@@ -130,8 +129,8 @@ export async function reloadAndEnableExtensions(): Promise<void> {
 
 /**
  * Gets a list of extensions that need to be verified as active
- * @param {(ext: ExtensionType) => boolean} predicate - Optional filter function to apply to the extensions
- * @returns {ExtensionType[]} Array of extensions that should be verified as active
+ * @param predicate - Optional filter function to apply to the extensions
+ * @returns Array of extensions that should be verified as active
  */
 export function getExtensionsToVerifyActive(
   predicate: (ext: ExtensionType) => boolean = ext => !!ext
@@ -145,9 +144,9 @@ export function getExtensionsToVerifyActive(
 
 /**
  * Verifies that specified extensions are running in VS Code
- * @param {ExtensionType[]} extensions - Array of extensions to verify
- * @param {Duration} timeout - Optional timeout (defaults to VERIFY_EXTENSIONS_TIMEOUT)
- * @returns {Promise<boolean>} True if all extensions are activated successfully
+ * @param extensions - Array of extensions to verify
+ * @param timeout - Optional timeout (defaults to VERIFY_EXTENSIONS_TIMEOUT)
+ * @returns True if all extensions are activated successfully
  */
 export async function verifyExtensionsAreRunning(extensions: ExtensionConfig[], timeout = VERIFY_EXTENSIONS_TIMEOUT) {
   log('');
@@ -207,9 +206,9 @@ export async function verifyExtensionsAreRunning(extensions: ExtensionConfig[], 
 
 /**
  * Finds and returns information about running extensions
- * @param {string[]} extensionIds - Array of extension IDs to look for
- * @returns {Promise<ExtensionActivation[]>} Array of extension activation information
- * @throws {Error} If the running extensions editor cannot be found
+ * @param extensionIds - Array of extension IDs to look for
+ * @returns Array of extension activation information
+ * @throws If the running extensions editor cannot be found
  */
 export async function findExtensionsInRunningExtensionsList(extensionIds: string[]): Promise<ExtensionActivation[]> {
   log('');
@@ -268,7 +267,6 @@ export async function findExtensionsInRunningExtensionsList(extensionIds: string
 
 /**
  * Checks for uncaught errors in extensions and fails the test if any are found
- * @returns {Promise<void>}
  */
 export async function checkForUncaughtErrors(): Promise<void> {
   await showRunningExtensions();

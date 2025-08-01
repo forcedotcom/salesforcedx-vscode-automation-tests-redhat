@@ -9,7 +9,7 @@ import { ReleaseQuality } from 'vscode-extension-tester/out/util/codeUtil';
 import { expect } from 'chai';
 import { log } from 'console';
 import { orgLoginSfdxUrl, setAlias } from './system-operations/cliCommands';
-import { getVsixFilesFromDir } from './system-operations';
+import { createOrOverwriteFile, getVsixFilesFromDir } from './system-operations';
 import { TestConfig } from './core/types';
 import { createDefaultTestConfig, validateTestConfig, normalizePath } from './core/helpers';
 import { verifyAliasAndUserName } from './salesforce-components/authorization';
@@ -360,22 +360,22 @@ exec "${chromeExePath}" \\
   "$@"
 `;
 
-      await fs.writeFile(wrapperPath, wrapperScript);
+      createOrOverwriteFile(wrapperPath, wrapperScript);
       await execAsync(`chmod +x "${wrapperPath}"`);
 
-            // Override Chrome path in environment
+      // Override Chrome path in environment
       process.env.CHROME_BIN = wrapperPath;
       process.env.CHROMIUM_BIN = wrapperPath;
       process.env.GOOGLE_CHROME_BIN = wrapperPath;
 
-            // Create wrapper scripts for common Chrome names in our own directory
+      // Create wrapper scripts for common Chrome names in our own directory
       const wrapperDir = path.join(this.testConfig.testResources || 'test-resources', 'chrome-wrappers');
       await fs.mkdir(wrapperDir, { recursive: true });
 
       const chromeNames = ['google-chrome', 'google-chrome-stable', 'chromium-browser', 'chromium'];
       for (const name of chromeNames) {
         const nameWrapperPath = path.join(wrapperDir, name);
-        await fs.writeFile(nameWrapperPath, wrapperScript);
+        createOrOverwriteFile(nameWrapperPath, wrapperScript);
         await execAsync(`chmod +x "${nameWrapperPath}"`);
         log(`Created ${name} wrapper at: ${nameWrapperPath}`);
       }
@@ -392,7 +392,7 @@ exec "${chromeExePath}" \\
     }
   }
 
-    public async setup(): Promise<void> {
+  public async setup(): Promise<void> {
     // Log the test environment configuration
     this.logTestEnvironment();
 
@@ -659,7 +659,7 @@ exec "${chromeExePath}" \\
     return TestSetupAndRunner._exTestor;
   }
 
-    private async setupVirtualDisplay(): Promise<void> {
+  private async setupVirtualDisplay(): Promise<void> {
     if (process.platform !== 'linux') {
       return;
     }
@@ -830,10 +830,10 @@ const argv = yargs(hideBin(process.argv))
     demandOption: false
   })
   .help().argv as {
-  spec: string | string[] | undefined;
-  workspacePath?: string;
-  vscodeVersion?: string;
-};
+    spec: string | string[] | undefined;
+    workspacePath?: string;
+    vscodeVersion?: string;
+  };
 
 // Create test config from command line arguments
 const testConfig: Partial<TestConfig> = {};

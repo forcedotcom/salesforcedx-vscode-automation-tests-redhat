@@ -3,7 +3,8 @@ import { executeQuickPick } from './commandPrompt';
 import { Duration, log, openFile, pause } from '../core/miscellaneous';
 import { getBrowser } from './workbench';
 import { retryOperation } from '../retryUtils';
-import fs from 'fs';
+import * as fs from 'node:fs/promises';
+import { createOrOverwriteFile } from '../system-operations/fileSystem';
 
 /**
  * Gets a text editor for a specific file
@@ -180,87 +181,38 @@ export async function attemptToFindTextEditorText(filePath: string): Promise<str
   return await editor.getText();
 }
 
-export async function overrideTextInFile(textEditor: TextEditor, classText: string, save = true) {
-  try {
-    // First, try the UI-based approach
-    await retryOperation(async () => {
-      log('overrideTextInFile() - Starting UI-based text replacement');
-
-      await textEditor.sendKeys(Key.chord(Key.CONTROL, 'a'));
-      await textEditor.sendKeys(Key.DELETE);
-
-      await pause(Duration.seconds(1));
-
-      log('overrideTextInFile() - Text cleared successfully, setting new text');
-
-      await textEditor.setText(classText);
-      await pause(Duration.seconds(2));
-
-      // Verify the text was set correctly
-      const text = await textEditor.getText();
-      log(`overrideTextInFile() - Text set. Length: ${text.length}, Expected length: ${classText.length}`);
-
-      // Normalize whitespace for comparison - remove all whitespace and compare
-      const normalizeText = (str: string) => str.replace(/\s+/g, '');
-      const normalizedText = normalizeText(text);
-      const normalizedClassText = normalizeText(classText);
-
-      if (normalizedText !== normalizedClassText) {
-        log(`overrideTextInFile() - Text mismatch. Got: "${text.substring(0, 100)}..." Expected: "${classText.substring(0, 100)}..."`);
-        throw new Error(`Text editor text does not match expected text (ignoring whitespace): "${text}" != "${classText}"`);
-      }
-
-      log('overrideTextInFile() - UI-based text replacement successful');
-    }, 1, 'UI-based text replacement failed');
-
-    if (save) {
-      log('overrideTextInFile() - Saving file via UI');
-      await textEditor.save();
-      await pause(Duration.seconds(1));
-    }
-
-  } catch (uiError) {
-    log(`overrideTextInFile() - UI approach failed: ${uiError}`);
-
-    const filePath = await textEditor.getFilePath();
-    // Try the file system fallback approach
-    log('overrideTextInFile() - Attempting file system fallback with provided path');
-    await overrideTextInFileWithFallback(filePath, classText);
-  }
-}
-
 /**
- * Fallback function that uses file system operations to override text content
- * @param filePath - The full path to the file to modify
- * @param classText - The new text content to write
- * @param save - Whether to save the file (not applicable for direct file system operations)
+ * Overwrites the entire content of a file using filesystem operations
+ * @param textEditor - The text editor instance containing the file to modify
+ * @param classText - The new content to write to the file
+ * @throws Error if file write operation fails or content verification fails
  */
-async function overrideTextInFileWithFallback(filePath: string, classText: string): Promise<void> {
+export async function overrideTextInFile(textEditor: TextEditor, classText: string) {
+  // Use fs.writeFileSync() to write the new content to the file
   try {
-    log(`overrideTextInFileWithFallback() - Writing content to file: ${filePath}`);
+    const filePath = await textEditor.getFilePath();
+    // Write new content to file
+    log(`overrideTextInFile() - Writing content to file: ${filePath}`);
+    createOrOverwriteFile(filePath, classText);
+    log(`overrideTextInFile() - Successfully wrote ${classText.length} characters to ${filePath}`);
 
-    // Write the new content to the file
-    await fs.promises.writeFile(filePath, classText, 'utf8');
+    // Give the editor time to detect the file change and reload
+    await pause(Duration.seconds(1));
 
-    log(`overrideTextInFileWithFallback() - Successfully wrote ${classText.length} characters to ${filePath}`);
-
-    // Verify the write was successful
-    const writtenContent = await fs.promises.readFile(filePath, 'utf8');
-
-    // Normalize whitespace for comparison
+    // Verify the write was successful by reading it back
+    const writtenContent = await fs.readFile(filePath, 'utf8');
     const normalizeText = (str: string) => str.replace(/\s+/g, '');
     const normalizedWritten = normalizeText(writtenContent);
     const normalizedExpected = normalizeText(classText);
 
     if (normalizedWritten !== normalizedExpected) {
-      throw new Error(`File system write verification failed. Written content does not match expected content.`);
+      throw new Error(`File write verification failed. Written content does not match expected content.`);
     }
 
-    log('overrideTextInFileWithFallback() - File system fallback successful');
-
+    log('overrideTextInFile() - File content verified successfully');
   } catch (error) {
-    log(`overrideTextInFileWithFallback() - File system fallback failed: ${error}`);
-    throw new Error(`File system fallback failed: ${error}`);
+    log(`overrideTextInFile() - File system operation failed: ${error}`);
+    throw new Error(`File system text replacement failed: ${error}`);
   }
 }
 
@@ -376,3 +328,18 @@ export const moveCursorWithFallback = async (textEditor: TextEditor, line: numbe
     }
   }
 };
+
+/** Replace a specific line in a file using fs operations
+ * @param filePath - The path to the file to modify
+ * @param lineNumber - The line number to replace (1-based index)
+ * @param newContent - The new content to write
+*/
+export async function replaceLineInFile(filePath: string, lineNumber: number, newContent: string): Promise<void> {
+  const fileContent = await fs.readFile(filePath, 'utf8');
+  const lines = fileContent.split('\n');
+
+  // Replace the specific line (1-based to 0-based index)
+  lines[lineNumber - 1] = newContent;
+
+  createOrOverwriteFile(filePath, lines.join('\n'));
+}

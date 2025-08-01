@@ -5,13 +5,11 @@
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { executeQuickPick } from '../ui-interaction/commandPrompt';
+import { join } from 'path';
 import { Duration, log, pause } from '../core/miscellaneous';
-import { getTextEditor, overrideTextInFile } from '../ui-interaction/textEditorView';
+import { getTextEditor } from '../ui-interaction/textEditorView';
 import { getWorkbench } from '../ui-interaction/workbench';
-import { retryOperation } from '../retryUtils';
-import { clickButtonOnModalDialog } from '../ui-interaction';
-import { InputBox, QuickOpenBox } from 'vscode-extension-tester';
+import { createFolder, createOrOverwriteFile } from '../system-operations/fileSystem';
 
 /**
  * Creates a Lightning Web Component with the specified name
@@ -19,25 +17,12 @@ import { InputBox, QuickOpenBox } from 'vscode-extension-tester';
  * Sets breakpoints in the test file
  *
  * @param name - The name of the LWC to create
+ * @param folder - The folder where the LWC should be created
  */
-export async function createLwc(name: string): Promise<void> {
-  log('createLwc() - calling getWorkbench()');
-  const workbench = getWorkbench();
+export async function createLwc(name: string, folder: string): Promise<void> {
+  log(`calling createLwc(${name})`);
 
-  log('createLwc() - Running SFDX: Create Lightning Web Component');
-  // Using the Command palette, run SFDX: Create Lightning Web Component.
-  const inputBox = await executeQuickPick('SFDX: Create Lightning Web Component', Duration.seconds(1));
-
-  log('createLwc() - Set the name of the new component');
-  // Set the name of the new component
-  await retryOperation(async () => {
-    await createComponentAndSetName(inputBox, name);
-  }, 3, 'Failed to set the name of the new component');
-
-  log('createLwc() - Modify js content');
-  // Modify js content
-  let textEditor = await getTextEditor(workbench, name + '.js');
-  await pause(Duration.seconds(1));
+  // Define JS content
   const jsText = [
     `import { LightningElement } from 'lwc';`,
     ``,
@@ -45,13 +30,8 @@ export async function createLwc(name: string): Promise<void> {
     `\tgreeting = 'World';`,
     `}`
   ].join('\n');
-  await overrideTextInFile(textEditor, jsText);
-  await pause(Duration.seconds(1));
 
-  log('createLwc() - Modify html content');
-  log('');
-  // Modify html content
-  textEditor = await getTextEditor(workbench, name + '.html');
+  // Define HTML content
   const htmlText = [
     `<template>`,
     `\t<lightning-card title="${name}" icon-name="custom:custom14">`,
@@ -60,11 +40,8 @@ export async function createLwc(name: string): Promise<void> {
     ``,
     `</template>`
   ].join('\n');
-  await overrideTextInFile(textEditor, htmlText);
 
-  log('createLwc() - Modify test content');
-  log('');
-  textEditor = await getTextEditor(workbench, name + '.test.js');
+  // Define test content
   const nameCapitalized = name.charAt(0).toUpperCase() + name.slice(1);
   const testText = [
     `import { createElement } from 'lwc';`,
@@ -95,7 +72,50 @@ export async function createLwc(name: string): Promise<void> {
     `    });`,
     `});`
   ].join('\n');
-  await overrideTextInFile(textEditor, testText);
+
+  // Define metadata content
+  const metaContent = [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">`,
+    `    <apiVersion>64.0</apiVersion>`,
+    `    <isExposed>false</isExposed>`,
+    `</LightningComponentBundle>`
+  ].join('\n');
+
+  // Create the file paths
+  const componentFolder = join(folder, name);
+  const testsFolder = join(componentFolder, '__tests__');
+  const jsFilePath = join(componentFolder, `${name}.js`);
+  const htmlFilePath = join(componentFolder, `${name}.html`);
+  const testFilePath = join(testsFolder, `${name}.test.js`);
+  const metaFilePath = join(componentFolder, `${name}.js-meta.xml`);
+
+  try {
+    // Create the component directory and __tests__ subdirectory
+    createFolder(componentFolder);
+    createFolder(testsFolder);
+
+    // Write all the LWC files using fs.writeFile
+    createOrOverwriteFile(jsFilePath, jsText);
+    log(`LWC JavaScript file ${name}.js created successfully at ${jsFilePath}`);
+
+    createOrOverwriteFile(htmlFilePath, htmlText);
+    log(`LWC HTML file ${name}.html created successfully at ${htmlFilePath}`);
+
+    createOrOverwriteFile(testFilePath, testText);
+    log(`LWC test file ${name}.test.js created successfully at ${testFilePath}`);
+
+    createOrOverwriteFile(metaFilePath, metaContent);
+    log(`LWC metadata file ${name}.js-meta.xml created successfully at ${metaFilePath}`);
+  } catch (error) {
+    log(`Error creating LWC ${name}: ${error}`);
+    throw error;
+  }
+
+  // Open the test file in the text editor and set breakpoints
+  await pause(Duration.seconds(1));
+  const workbench = getWorkbench();
+  const textEditor = await getTextEditor(workbench, name + '.test.js');
 
   // Set breakpoints
   log('createLwc() - Setting breakpoints 17 and 25');
@@ -107,43 +127,18 @@ export async function createLwc(name: string): Promise<void> {
   log('createLwc() - Set breakpoints 17 and 25 done');
 }
 
-async function createComponentAndSetName(inputBox: InputBox | QuickOpenBox, name: string) {
-  log('createComponentAndSetName() - Setting the name of the new component');
-  await pause(Duration.seconds(2));
-  await inputBox.wait();
-  await inputBox.setText(name);
-  await pause(Duration.seconds(1));
-  await inputBox.confirm();
-  await pause(Duration.seconds(1));
-  await inputBox.confirm();
-  await pause(Duration.seconds(1));
-  await clickButtonOnModalDialog('Overwrite', false);
-  await pause(Duration.seconds(1));
-}
-
 /**
  * Creates an Aura component with the specified name
  * Generates component markup with a simple contact form
  *
  * @param name - The name of the Aura component to create
+ * @param folder - The folder where the Aura component should be created
  */
-export async function createAura(name: string): Promise<void> {
-  const workbench = getWorkbench();
+export async function createAura(name: string, folder: string): Promise<void> {
+  log(`calling createAura(${name})`);
 
-  log('createAura() - Running SFDX: Create Aura Component');
-  const inputBox = await executeQuickPick('SFDX: Create Aura Component', Duration.seconds(1));
-
-  log('createAura() - Set the name of the new component');
-  // Set the name of the new component
-  await retryOperation(async () => {
-    await createComponentAndSetName(inputBox, name);
-  });
-
-  log('createAura() - Modify html content');
-  // Modify html content
-  const textEditor = await getTextEditor(workbench, name + '.cmp');
-  await pause(Duration.seconds(1));
-  const htmlText = [
+  // Define component content
+  const componentText = [
     '<aura:component>',
     '\t',
     '\t<aura:attribute name="simpleNewContact" type="Object"/>',
@@ -155,6 +150,128 @@ export async function createAura(name: string): Promise<void> {
     '\t</aura:if>',
     '</aura:component>'
   ].join('\n');
-  await overrideTextInFile(textEditor, htmlText);
+
+  // Define metadata content
+  const metaContent = [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<AuraDefinitionBundle xmlns="http://soap.sforce.com/2006/04/metadata">`,
+    `    <apiVersion>64.0</apiVersion>`,
+    `    <description>A Lightning Component Bundle</description>`,
+    `</AuraDefinitionBundle>`
+  ].join('\n');
+
+  // Define controller content
+  const controllerText = [
+    `({`,
+    `\tmyAction : function(component, event, helper) {`,
+    `\t\t`,
+    `\t}`,
+    `})`
+  ].join('\n');
+
+  // Define helper content
+  const helperText = [
+    `({`,
+    `\thelperMethod : function() {`,
+    `\t\t`,
+    `\t}`,
+    `})`
+  ].join('\n');
+
+  // Define renderer content
+  const rendererText = [
+    `({`,
+    `\t`,
+    `\t// Your renderer method overrides go here`,
+    `\t`,
+    `})`
+  ].join('\n');
+
+  // Define CSS content
+  const cssText = [
+    `.THIS {`,
+    `}`
+  ].join('\n');
+
+  // Define design content
+  const designText = [
+    `<design:component >`,
+    `\t`,
+    `</design:component>`
+  ].join('\n');
+
+  // Define auradoc content
+  const auradocText = [
+    `<aura:documentation>`,
+    `\t<aura:description>Documentation for ${name}</aura:description>`,
+    `\t<aura:example name="ExampleName" ref="exampleComponentName" label="Label">`,
+    `\t\tExample Description`,
+    `\t</aura:example>`,
+    `</aura:documentation>`
+  ].join('\n');
+
+  // Define SVG content
+  const svgText = [
+    `<?xml version="1.0" encoding="UTF-8" standalone="no"?>`,
+    `<svg width="120px" height="120px" viewBox="0 0 120 120" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`,
+    `\t<g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">`,
+    `\t\t<path d="M120,108 C120,114.6 114.6,120 108,120 L12,120 C5.4,120 0,114.6 0,108 L0,12 C0,5.4 5.4,0 12,0 L108,0 C114.6,0 120,5.4 120,12 L120,108 L120,108 Z" id="Shape" fill="#2A739E"/>`,
+    `\t\t<path d="M77.7383308,20 L61.1640113,20 L44.7300055,63.2000173 L56.0543288,63.2000173 L40,99.623291 L72.7458388,54.5871812 L60.907727,54.5871812 L77.7383308,20 Z" id="Path-1" fill="#FFFFFF"/>`,
+    `\t</g>`,
+    `</svg>`
+  ].join('\n');
+
+  // Create the file paths
+  const componentFolder = join(folder, name);
+  const componentFilePath = join(componentFolder, `${name}.cmp`);
+  const metaFilePath = join(componentFolder, `${name}.cmp-meta.xml`);
+  const controllerFilePath = join(componentFolder, `${name}Controller.js`);
+  const helperFilePath = join(componentFolder, `${name}Helper.js`);
+  const rendererFilePath = join(componentFolder, `${name}Renderer.js`);
+  const cssFilePath = join(componentFolder, `${name}.css`);
+  const designFilePath = join(componentFolder, `${name}.design`);
+  const auradocFilePath = join(componentFolder, `${name}.auradoc`);
+  const svgFilePath = join(componentFolder, `${name}.svg`);
+
+  try {
+    // Create the component directory
+    createFolder(componentFolder);
+
+    // Write all the Aura component files using fs.writeFile
+    createOrOverwriteFile(componentFilePath, componentText);
+    log(`Aura component file ${name}.cmp created successfully at ${componentFilePath}`);
+
+    createOrOverwriteFile(metaFilePath, metaContent);
+    log(`Aura component metadata file ${name}.cmp-meta.xml created successfully at ${metaFilePath}`);
+
+    createOrOverwriteFile(controllerFilePath, controllerText);
+    log(`Aura controller file ${name}Controller.js created successfully at ${controllerFilePath}`);
+
+    createOrOverwriteFile(helperFilePath, helperText);
+    log(`Aura helper file ${name}Helper.js created successfully at ${helperFilePath}`);
+
+    createOrOverwriteFile(rendererFilePath, rendererText);
+    log(`Aura renderer file ${name}Renderer.js created successfully at ${rendererFilePath}`);
+
+    createOrOverwriteFile(cssFilePath, cssText);
+    log(`Aura CSS file ${name}.css created successfully at ${cssFilePath}`);
+
+    createOrOverwriteFile(designFilePath, designText);
+    log(`Aura design file ${name}.design created successfully at ${designFilePath}`);
+
+    createOrOverwriteFile(auradocFilePath, auradocText);
+    log(`Aura documentation file ${name}.auradoc created successfully at ${auradocFilePath}`);
+
+    createOrOverwriteFile(svgFilePath, svgText);
+    log(`Aura SVG file ${name}.svg created successfully at ${svgFilePath}`);
+  } catch (error) {
+    log(`Error creating Aura component ${name}: ${error}`);
+    throw error;
+  }
+
+  // Open the file in the text editor
+  await pause(Duration.seconds(1));
+  const workbench = getWorkbench();
+  await getTextEditor(workbench, name + '.cmp');
   await pause(Duration.seconds(1));
 }
